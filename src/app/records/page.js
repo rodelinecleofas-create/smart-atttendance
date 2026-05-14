@@ -54,6 +54,7 @@ export default function Records() {
     loadData();
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setRecords([]);
     setLastVisible(null);

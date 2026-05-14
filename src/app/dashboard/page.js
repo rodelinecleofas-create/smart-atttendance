@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useRouter } from 'next/navigation';
 import ProtectedPage from '../../components/ProtectedPage';
+import { AttendanceCard, AttendancePieChart, LoadingSpinner } from '../../components/Charts';
 
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -93,24 +94,27 @@ export default function Dashboard() {
   }, [user]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-lg text-gray-700">Loading dashboard…</p>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
+
+  const chartData = [
+    { name: 'Present', value: stats.present },
+    { name: 'Absent', value: stats.absent },
+    { name: 'Late', value: stats.late },
+  ];
 
   return (
     <ProtectedPage>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
+        <div className="mx-auto max-w-7xl space-y-6">
+          {/* Header */}
+          <div className="rounded-lg bg-white p-6 shadow">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-semibold text-gray-900">Welcome back</h1>
                 <p className="mt-2 text-gray-600">Manage attendance, review reports, and keep your roster up to date.</p>
               </div>
-              <div className="rounded-2xl border border-gray-200 bg-blue-50 p-4 text-center">
+              <div className="rounded-lg border border-gray-200 bg-blue-50 p-4 text-center">
                 <p className="text-sm font-medium text-blue-700">{verifyLabel}</p>
                 {!user?.emailVerified && (
                   <button
@@ -125,58 +129,89 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {error && <div className="rounded-2xl bg-red-50 p-4 text-red-700">{error}</div>}
-          {message && <div className="rounded-2xl bg-green-50 p-4 text-green-700">{message}</div>}
+          {error && <div className="rounded-lg bg-red-50 p-4 text-red-700">{error}</div>}
+          {message && <div className="rounded-lg bg-green-50 p-4 text-green-700">{message}</div>}
 
-          <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Students in roster</p>
-              <p className="mt-3 text-3xl font-semibold text-gray-900">{studentCount}</p>
-            </div>
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Attendance periods</p>
-              <p className="mt-3 text-3xl font-semibold text-gray-900">{periodCount}</p>
-            </div>
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Today&apos;s attendance</p>
-              <p className="mt-3 text-3xl font-semibold text-gray-900">{stats.total}</p>
-            </div>
+          {/* Main Stats Cards */}
+          <div className="grid gap-6 md:grid-cols-4">
+            <AttendanceCard title="Students" value={studentCount} color="blue" />
+            <AttendanceCard title="Sessions" value={periodCount} color="purple" />
+            <AttendanceCard title="Total Attendance" value={stats.total} color="green" />
+            <AttendanceCard title="Attendance Rate" value={stats.total > 0 ? `${Math.round((stats.present / stats.total) * 100)}%` : '0%'} color="yellow" />
           </div>
 
+          {/* Attendance Stats */}
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Present</p>
-              <p className="mt-3 text-3xl font-semibold text-green-600">{stats.present}</p>
-            </div>
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Absent</p>
-              <p className="mt-3 text-3xl font-semibold text-red-600">{stats.absent}</p>
-            </div>
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <p className="text-sm font-medium text-gray-500">Late</p>
-              <p className="mt-3 text-3xl font-semibold text-orange-500">{stats.late}</p>
-            </div>
+            <AttendanceCard title="Present" value={stats.present} color="green" />
+            <AttendanceCard title="Absent" value={stats.absent} color="red" />
+            <AttendanceCard title="Late" value={stats.late} color="yellow" />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          {/* Charts and Reports */}
+          <div className="grid gap-6 md:grid-cols-2">
+            {chartData.some((d) => d.value > 0) && (
+              <AttendancePieChart data={chartData} title="Today's Attendance Distribution" />
+            )}
+          </div>
+
+          {/* Quick Action Buttons */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <button
               type="button"
               onClick={() => router.push('/attendance')}
-              className="rounded-3xl bg-indigo-600 px-6 py-4 text-white transition hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-6 py-4 text-white font-medium transition hover:bg-indigo-700 flex items-center justify-center gap-2"
             >
-              Mark Attendance
+              📋 Mark Attendance
             </button>
             <button
               type="button"
               onClick={() => router.push('/records')}
-              className="rounded-3xl bg-emerald-600 px-6 py-4 text-white transition hover:bg-emerald-700"
+              className="rounded-lg bg-emerald-600 px-6 py-4 text-white font-medium transition hover:bg-emerald-700 flex items-center justify-center gap-2"
             >
-              View Records
+              📊 View Records
             </button>
             <button
               type="button"
+              onClick={() => router.push('/reports')}
+              className="rounded-lg bg-blue-600 px-6 py-4 text-white font-medium transition hover:bg-blue-700 flex items-center justify-center gap-2"
+            >
+              📈 Reports
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/admin')}
+              className="rounded-lg bg-purple-600 px-6 py-4 text-white font-medium transition hover:bg-purple-700 flex items-center justify-center gap-2"
+            >
+              ⚙️ Admin Panel
+            </button>
+          </div>
+
+          {/* Student Management */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => router.push('/admin/roster')}
+              className="rounded-lg bg-yellow-600 px-6 py-4 text-white font-medium transition hover:bg-yellow-700 text-left"
+            >
+              <div className="font-semibold">📥 Import/Export Roster</div>
+              <div className="text-sm text-yellow-100">Bulk manage students</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/settings')}
+              className="rounded-lg bg-gray-600 px-6 py-4 text-white font-medium transition hover:bg-gray-700 text-left"
+            >
+              <div className="font-semibold">⚙️ Account Settings</div>
+              <div className="text-sm text-gray-100">Manage profile and security</div>
+            </button>
+          </div>
+
+          {/* Logout Button */}
+          <div className="flex justify-end">
+            <button
+              type="button"
               onClick={handleLogout}
-              className="rounded-3xl bg-red-600 px-6 py-4 text-white transition hover:bg-red-700"
+              className="rounded-lg bg-red-600 px-6 py-3 text-white font-medium transition hover:bg-red-700"
             >
               Logout
             </button>

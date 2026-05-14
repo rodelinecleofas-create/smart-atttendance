@@ -1,15 +1,68 @@
 ﻿# Smart Attend
 
-A modern attendance management system built with Next.js, Tailwind CSS, and Firebase.
+A comprehensive attendance management system built with Next.js, Tailwind CSS, Firebase, and Recharts.
 
-## Features
+## ✨ Features
 
-- Firebase Auth signup, login, and role-based access control
-- Admin panel for students and attendance session management
-- Attendance marking with duplicate prevention and undo support
-- Filterable attendance reporting with edit/delete, export, and print options
-- Responsive mobile navigation and admin-aware menu
-- Firestore security rules for student, session, and attendance access
+### Core Features
+- Firebase Authentication (signup, login, password reset)
+- Role-based access control (Admin, Teacher, Parent, Student)
+- Admin panel for student and attendance session management
+- Attendance marking with multiple statuses
+- Filterable attendance reporting
+
+### 📊 New Analytics & Reporting
+- Real-time attendance charts and visualizations
+- Weekly and monthly attendance trends
+- Student-wise attendance summaries
+- PDF export for reports
+- CSV download capabilities
+- Attendance percentage calculations
+
+### 📋 Roster Management
+- Bulk import students from CSV
+- Bulk export student data
+- Student profile pages with contact information
+- Parent contact details management
+
+### 📌 Attendance Statuses
+- Present
+- Absent
+- Late
+- Excused
+- Sick
+- Permission
+- Leave
+- Custom status labels support
+
+### 👤 User Management
+- Admin account management
+- Teacher account creation
+- Parent login views
+- Student login views
+- Account settings page
+- Password change functionality
+
+### 📧 Notifications
+- Email alerts for absent students
+- Verification email reminders
+- Daily attendance summary emails
+- Email notification service integration
+
+### 📝 Audit & History
+- Audit logging of all actions
+- History tracking for attendance records
+- User activity monitoring
+- Change history view
+
+### 🎨 UI/UX Improvements
+- Dashboard with analytics cards
+- Empty state screens
+- Error handling and user feedback
+- Loading states
+- Responsive design
+- Search and filter functionality
+- Pagination support
 
 ## Getting Started
 
@@ -35,6 +88,8 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 npm run dev
 ```
 
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
 ## Admin role
 
 The first registered user is granted the `admin` role automatically. Additional users are created as `teacher` by default.
@@ -46,6 +101,21 @@ The project includes `firestore.rules` for role-based access control. Deploy the
 ```bash
 firebase deploy --only firestore:rules
 ```
+
+## Pages and Features
+
+- `/` - Landing page
+- `/login` - User login
+- `/register` - User registration
+- `/dashboard` - Main dashboard with analytics
+- `/attendance` - Mark attendance
+- `/records` - View attendance records
+- `/reports` - Generate reports and analytics
+- `/settings` - Account settings and security
+- `/admin` - Admin panel
+- `/admin/roster` - Bulk import/export students
+- `/student/[id]` - Student profile page
+- `/audit-logs` - View audit logs
 
 ## Deployment
 
