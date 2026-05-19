@@ -207,7 +207,7 @@ export default function Records() {
   };
 
   return (
-    <ProtectedPage>
+    <ProtectedPage requiredRole={[ 'teacher', 'admin' ]}>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-6xl space-y-6">
           <div className="rounded-3xl bg-white p-6 shadow-sm">

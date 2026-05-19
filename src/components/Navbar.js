@@ -78,12 +78,19 @@ export default function Navbar() {
                 <Link href="/dashboard" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
                   Dashboard
                 </Link>
-                <Link href="/attendance" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
-                  Attendance
-                </Link>
-                <Link href="/records" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
-                  Records
-                </Link>
+                {(role === 'teacher' || role === 'admin') && (
+                  <>
+                    <Link href="/attendance" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
+                      Attendance
+                    </Link>
+                    <Link href="/records" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
+                      Records
+                    </Link>
+                    <Link href="/reports" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
+                      Reports
+                    </Link>
+                  </>
+                )}
                 {role === 'admin' && (
                   <Link href="/admin" className="rounded-md px-3 py-2 text-white hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
                     Admin

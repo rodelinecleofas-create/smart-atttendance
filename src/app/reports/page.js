@@ -91,7 +91,7 @@ export default function Reports() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <ProtectedPage>
+    <ProtectedPage requiredRole={[ 'teacher', 'admin' ]}>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex justify-between items-center mb-8">

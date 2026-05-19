@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useRouter } from 'next/navigation';
 import ProtectedPage from '../../components/ProtectedPage';
@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [periodCount, setPeriodCount] = useState(0);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [students, setStudents] = useState([]);
+  const [role, setRole] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalStatus, setModalStatus] = useState(null);
   const router = useRouter();
@@ -42,6 +43,8 @@ export default function Dashboard() {
       setLoading(false);
 
       try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        setRole(userDoc.exists() ? userDoc.data().role : null);
         const today = new Date();
         const attendanceSnapshot = await getDocs(
           query(
@@ -211,29 +214,38 @@ export default function Dashboard() {
 
 
           {/* Quick Action Buttons */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <button
-              type="button"
-              onClick={() => router.push('/attendance')}
-              className="rounded-lg bg-indigo-600 px-6 py-4 text-white font-medium transition hover:bg-indigo-700 flex items-center justify-center gap-2"
-            >
-              📋 Mark Attendance
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/records')}
-              className="rounded-lg bg-emerald-600 px-6 py-4 text-white font-medium transition hover:bg-emerald-700 flex items-center justify-center gap-2"
-            >
-              📊 View Records
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/reports')}
-              className="rounded-lg bg-blue-600 px-6 py-4 text-white font-medium transition hover:bg-blue-700 flex items-center justify-center gap-2"
-            >
-              📈 Reports
-            </button>
-          </div>
+          {role === 'teacher' || role === 'admin' ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => router.push('/attendance')}
+                className="rounded-lg bg-indigo-600 px-6 py-4 text-white font-medium transition hover:bg-indigo-700 flex items-center justify-center gap-2"
+              >
+                📋 Mark Attendance
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/records')}
+                className="rounded-lg bg-emerald-600 px-6 py-4 text-white font-medium transition hover:bg-emerald-700 flex items-center justify-center gap-2"
+              >
+                📊 View Records
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/reports')}
+                className="rounded-lg bg-blue-600 px-6 py-4 text-white font-medium transition hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
+                📈 Reports
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-gray-900">Student access only</h2>
+              <p className="mt-2 text-gray-600">
+                As a student, you can view your dashboard here. Teacher tools like attendance marking, records, and reports are available only to teachers and administrators.
+              </p>
+            </div>
+          )}
 
           {/* Logout Button */}
           <div className="flex justify-end">
