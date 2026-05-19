@@ -97,7 +97,7 @@ S002,Jane Smith,10,A,Female,John Smith,9876543213,john.s@example.com`;
   };
 
   return (
-    <ProtectedPage>
+    <ProtectedPage requiredRole="admin">
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Roster Management</h1>
