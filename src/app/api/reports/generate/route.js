@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore, collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, query, where, orderBy } from 'firebase/firestore/lite';
 import { initializeApp } from 'firebase/app';
 
 const firebaseConfig = {

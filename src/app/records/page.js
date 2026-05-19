@@ -36,7 +36,7 @@ export default function Records() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState({ status: '', classPeriod: '', date: '' });
-  const [pageSize] = useState(12);
+  const pageSize = 12;
   const [lastVisible, setLastVisible] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const router = useRouter();
@@ -54,7 +54,6 @@ export default function Records() {
     loadData();
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setRecords([]);
     setLastVisible(null);
@@ -77,7 +76,6 @@ export default function Records() {
           collection(db, 'attendance'),
           ...constraints,
           orderBy('date', sortOrder),
-          ...(lastVisible ? [startAfter(lastVisible)] : []),
           limit(pageSize)
         );
 
