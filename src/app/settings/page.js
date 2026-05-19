@@ -15,6 +15,11 @@ export default function Settings() {
     newPassword: '',
     confirmPassword: '',
   });
+  const [notifications, setNotifications] = useState({
+    absent: true,
+    verification: true,
+    summary: true,
+  });
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -52,11 +57,34 @@ export default function Settings() {
     }
   };
 
+  const handleSavePreferences = async () => {
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      localStorage.setItem('notificationPreferences', JSON.stringify(notifications));
+      setMessage('Notification preferences saved successfully');
+    } catch (err) {
+      setError('Failed to save preferences');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ProtectedPage>
       <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl">
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">Account Settings</h1>
+          <div className="flex items-center gap-4 mb-8">
+            <button
+              onClick={() => window.history.back()}
+              className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold"
+            >
+              ← Back
+            </button>
+            <h1 className="text-3xl font-bold text-gray-900">Account Settings</h1>
+          </div>
 
           {/* Tab Navigation */}
           <div className="flex gap-4 mb-8 border-b">
@@ -175,28 +203,56 @@ export default function Settings() {
           {activeTab === 'notifications' && (
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Email Notifications</h2>
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-lg">{error}</div>
+              )}
+              {message && (
+                <div className="mb-4 p-4 bg-green-50 text-green-700 rounded-lg">{message}</div>
+              )}
               <div className="space-y-4">
                 <div className="flex items-center">
-                  <input type="checkbox" id="absent" className="mr-3" defaultChecked />
+                  <input
+                    type="checkbox"
+                    id="absent"
+                    className="mr-3"
+                    checked={notifications.absent}
+                    onChange={(e) => setNotifications({ ...notifications, absent: e.target.checked })}
+                  />
                   <label htmlFor="absent" className="text-gray-900">
                     Email alerts when student is absent
                   </label>
                 </div>
                 <div className="flex items-center">
-                  <input type="checkbox" id="verification" className="mr-3" defaultChecked />
+                  <input
+                    type="checkbox"
+                    id="verification"
+                    className="mr-3"
+                    checked={notifications.verification}
+                    onChange={(e) => setNotifications({ ...notifications, verification: e.target.checked })}
+                  />
                   <label htmlFor="verification" className="text-gray-900">
                     Reminder emails for account verification
                   </label>
                 </div>
                 <div className="flex items-center">
-                  <input type="checkbox" id="summary" className="mr-3" defaultChecked />
+                  <input
+                    type="checkbox"
+                    id="summary"
+                    className="mr-3"
+                    checked={notifications.summary}
+                    onChange={(e) => setNotifications({ ...notifications, summary: e.target.checked })}
+                  />
                   <label htmlFor="summary" className="text-gray-900">
                     Daily attendance summary emails
                   </label>
                 </div>
               </div>
-              <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Save Preferences
+              <button
+                onClick={handleSavePreferences}
+                disabled={loading}
+                className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
+              >
+                {loading ? 'Saving...' : 'Save Preferences'}
               </button>
             </div>
           )}

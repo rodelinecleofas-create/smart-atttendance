@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { sendPasswordResetEmail } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
+import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
 
 export async function POST(request) {
   try {
@@ -9,19 +10,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    // TODO: Integrate with Firebase sendPasswordResetEmail
-    // For now, just return success
-    console.log(`Password reset requested for: ${email}`);
+    await firebaseSendPasswordResetEmail(auth, email);
 
     return NextResponse.json({
       success: true,
-      message: 'Password reset email sent',
+      message: 'Password reset email sent if the account exists.',
       email,
     });
   } catch (error) {
     console.error('Password reset error:', error);
     return NextResponse.json(
-      { error: error.message },
+      { error: error?.message || 'Unable to send password reset email.' },
       { status: 500 }
     );
   }

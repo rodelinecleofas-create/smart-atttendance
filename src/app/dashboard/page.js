@@ -25,6 +25,10 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
   const [studentCount, setStudentCount] = useState(0);
   const [periodCount, setPeriodCount] = useState(0);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [modalStatus, setModalStatus] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,9 +51,12 @@ export default function Dashboard() {
           )
         );
 
+        const records = attendanceSnapshot.docs.map((doc) => doc.data());
+        setAttendanceRecords(records);
+
         const counts = { present: 0, absent: 0, late: 0, total: attendanceSnapshot.size };
-        attendanceSnapshot.forEach((doc) => {
-          const status = doc.data().status;
+        records.forEach((record) => {
+          const status = record.status;
           if (status === 'present') counts.present += 1;
           if (status === 'absent') counts.absent += 1;
           if (status === 'late') counts.late += 1;
@@ -57,6 +64,8 @@ export default function Dashboard() {
         setStats(counts);
 
         const studentSnapshot = await getDocs(collection(db, 'students'));
+        const studentsData = studentSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setStudents(studentsData);
         setStudentCount(studentSnapshot.size);
 
         const periodSnapshot = await getDocs(collection(db, 'periods'));
@@ -76,6 +85,16 @@ export default function Dashboard() {
     } catch {
       setError('Unable to sign out. Please try again.');
     }
+  };
+
+  const showStatusModal = (status) => {
+    setModalStatus(status);
+    setShowModal(true);
+  };
+
+  const getStudentsByStatus = () => {
+    if (!modalStatus) return [];
+    return attendanceRecords.filter((record) => record.status === modalStatus);
   };
 
   const handleResendVerification = async () => {
@@ -134,25 +153,62 @@ export default function Dashboard() {
 
           {/* Main Stats Cards */}
           <div className="grid gap-6 md:grid-cols-4">
-            <AttendanceCard title="Students" value={studentCount} color="blue" />
-            <AttendanceCard title="Sessions" value={periodCount} color="purple" />
-            <AttendanceCard title="Total Attendance" value={stats.total} color="green" />
-            <AttendanceCard title="Attendance Rate" value={stats.total > 0 ? `${Math.round((stats.present / stats.total) * 100)}%` : '0%'} color="yellow" />
+            <button
+              onClick={() => router.push('/admin')}
+              className="rounded-lg bg-blue-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-blue-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Students</p>
+              <p className="text-3xl font-bold text-blue-600">{studentCount}</p>
+            </button>
+            <button
+              onClick={() => router.push('/admin')}
+              className="rounded-lg bg-purple-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-purple-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Sessions</p>
+              <p className="text-3xl font-bold text-purple-600">{periodCount}</p>
+            </button>
+            <button
+              onClick={() => router.push('/records')}
+              className="rounded-lg bg-green-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-green-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Total Attendance</p>
+              <p className="text-3xl font-bold text-green-600">{stats.total}</p>
+            </button>
+            <button
+              onClick={() => router.push('/records')}
+              className="rounded-lg bg-yellow-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-yellow-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Attendance Rate</p>
+              <p className="text-3xl font-bold text-yellow-600">{stats.total > 0 ? `${Math.round((stats.present / stats.total) * 100)}%` : '0%'}</p>
+            </button>
           </div>
 
           {/* Attendance Stats */}
           <div className="grid gap-6 md:grid-cols-3">
-            <AttendanceCard title="Present" value={stats.present} color="green" />
-            <AttendanceCard title="Absent" value={stats.absent} color="red" />
-            <AttendanceCard title="Late" value={stats.late} color="yellow" />
+            <button
+              onClick={() => showStatusModal('present')}
+              className="rounded-lg bg-green-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-green-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Present</p>
+              <p className="text-3xl font-bold text-green-600">{stats.present}</p>
+            </button>
+            <button
+              onClick={() => showStatusModal('absent')}
+              className="rounded-lg bg-red-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-red-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Absent</p>
+              <p className="text-3xl font-bold text-red-600">{stats.absent}</p>
+            </button>
+            <button
+              onClick={() => showStatusModal('late')}
+              className="rounded-lg bg-yellow-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-yellow-400"
+            >
+              <p className="text-sm font-medium text-gray-600">Late</p>
+              <p className="text-3xl font-bold text-yellow-600">{stats.late}</p>
+            </button>
           </div>
 
-          {/* Charts and Reports */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {chartData.some((d) => d.value > 0) && (
-              <AttendancePieChart data={chartData} title="Today's Attendance Distribution" />
-            )}
-          </div>
+
 
           {/* Quick Action Buttons */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -218,6 +274,45 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Student Details Modal */}
+      {showModal && modalStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 capitalize">
+                  {modalStatus === 'present' && '✅ Present'}
+                  {modalStatus === 'absent' && '❌ Absent'}
+                  {modalStatus === 'late' && '⏰ Late'}
+                </h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">Students marked as {modalStatus} today</p>
+            </div>
+            <div className="p-6">
+              {getStudentsByStatus().length === 0 ? (
+                <p className="text-center text-gray-500">No students marked as {modalStatus} today</p>
+              ) : (
+                <ul className="space-y-2">
+                  {getStudentsByStatus().map((record, idx) => (
+                    <li key={idx} className="p-3 bg-gray-50 rounded-lg">
+                      <p className="font-semibold text-gray-900">{record.studentName}</p>
+                      <p className="text-sm text-gray-600">{record.studentId}</p>
+                      <p className="text-xs text-gray-500 mt-1">Period: {record.classPeriod}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </ProtectedPage>
   );
 }

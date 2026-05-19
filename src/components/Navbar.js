@@ -32,6 +32,9 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
+    // Clear all localStorage and session data
+    localStorage.clear();
+    sessionStorage.clear();
     await signOut(auth);
     setOpen(false);
     router.push('/login');
@@ -41,7 +44,7 @@ export default function Navbar() {
     <nav className="bg-blue-600 text-white">
       <div className="container mx-auto flex flex-wrap items-center justify-between px-4 py-4">
         <Link href="/" className="text-white text-xl font-bold">
-          Smart Attend
+          Smart Attendance
         </Link>
 
         <button

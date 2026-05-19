@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
+  setDoc,
   where,
   orderBy,
 } from 'firebase/firestore';
@@ -42,6 +43,7 @@ export default function Attendance() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [lastCreatedIds, setLastCreatedIds] = useState([]);
+  const [markingStudentId, setMarkingStudentId] = useState(null);
 
   useEffect(() => {
     const loadRoster = async () => {
@@ -105,6 +107,12 @@ export default function Attendance() {
       return;
     }
 
+    const attendanceDate = new Date(date);
+    if (Number.isNaN(attendanceDate.getTime())) {
+      setError('Select a valid attendance date before saving.');
+      return;
+    }
+
     if (!window.confirm('Save attendance for the selected student(s)?')) {
       return;
     }
@@ -112,7 +120,6 @@ export default function Attendance() {
     setSubmitting(true);
 
     try {
-      const attendanceDate = new Date(date);
       const start = startOfDay(attendanceDate);
       const end = endOfDay(attendanceDate);
       const createdIds = [];
@@ -122,22 +129,28 @@ export default function Attendance() {
         const student = students.find((item) => item.id === studentId);
         if (!student) continue;
 
-        const duplicateQuery = query(
-          collection(db, 'attendance'),
-          where('studentId', '==', student.studentId),
-          where('date', '>=', start),
-          where('date', '<', end),
-          where('classPeriod', '==', selectedPeriod)
-        );
-
-        const duplicateSnapshot = await getDocs(duplicateQuery);
-        if (!duplicateSnapshot.empty) {
-          skipped.push(student.name || student.studentId);
+        const studentIdentifier = student.studentId || student.id;
+        if (!studentIdentifier) {
+          skipped.push(student.name || student.id || 'Unknown student');
           continue;
         }
 
-        const docRef = await addDoc(collection(db, 'attendance'), {
-          studentId: student.studentId,
+        const attendanceKey = [
+          encodeURIComponent(studentIdentifier),
+          encodeURIComponent(selectedPeriod),
+          attendanceDate.toISOString().slice(0, 10),
+        ].join('_');
+
+        const attendanceDocRef = doc(db, 'attendance', attendanceKey);
+        const existingAttendance = await getDoc(attendanceDocRef);
+
+        if (existingAttendance.exists()) {
+          skipped.push(student.name || studentIdentifier);
+          continue;
+        }
+
+        await setDoc(attendanceDocRef, {
+          studentId: studentIdentifier,
           studentName: student.name,
           classPeriod: selectedPeriod,
           status,
@@ -145,7 +158,7 @@ export default function Attendance() {
           createdAt: serverTimestamp(),
         });
 
-        createdIds.push(docRef.id);
+        createdIds.push(attendanceDocRef.id);
       }
 
       setLastCreatedIds(createdIds);
@@ -163,7 +176,8 @@ export default function Attendance() {
         setError(`Skipped duplicate entries for: ${skipped.join(', ')}`);
       }
     } catch (err) {
-      setError('Unable to save attendance. Please try again.');
+      console.error('Attendance save failed:', err);
+      setError(`Unable to save attendance. Please try again. ${err?.message ? err.message : ''}`);
     } finally {
       setSubmitting(false);
     }
@@ -179,6 +193,53 @@ export default function Attendance() {
       setLastCreatedIds([]);
     } catch {
       setError('Unable to undo attendance. Please try again.');
+    }
+  };
+
+  const handleMarkStatus = async (studentId, statusValue) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) return;
+
+    setMarkingStudentId(studentId);
+    setError('');
+    setMessage('');
+
+    try {
+      const attendanceDate = new Date(date);
+      if (Number.isNaN(attendanceDate.getTime())) {
+        setError('Select a valid attendance date before saving.');
+        setMarkingStudentId(null);
+        return;
+      }
+
+      const studentIdentifier = student.studentId || student.id;
+      if (!studentIdentifier) {
+        setError('Student ID is missing');
+        setMarkingStudentId(null);
+        return;
+      }
+
+      const attendanceKey = [
+        encodeURIComponent(studentIdentifier),
+        encodeURIComponent(selectedPeriod),
+        attendanceDate.toISOString().slice(0, 10),
+      ].join('_');
+
+      const attendanceDocRef = doc(db, 'attendance', attendanceKey);
+      await setDoc(attendanceDocRef, {
+        studentId: studentIdentifier,
+        studentName: student.name,
+        classPeriod: selectedPeriod,
+        status: statusValue,
+        date: attendanceDate,
+        createdAt: serverTimestamp(),
+      }, { merge: true });
+
+      setMessage(`${student.name} marked as ${statusValue}`);
+    } catch (err) {
+      setError(`Failed to mark attendance for ${student.name}: ${err.message}`);
+    } finally {
+      setMarkingStudentId(null);
     }
   };
 
@@ -287,7 +348,7 @@ export default function Attendance() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Student roster</h2>
-                  <p className="text-sm text-gray-600">Search and select one or more students.</p>
+                  <p className="text-sm text-gray-600">Click status buttons to mark attendance directly.</p>
                 </div>
                 <div className="min-w-[200px]">
                   <input
@@ -316,13 +377,35 @@ export default function Attendance() {
                           <p className="font-semibold text-gray-900">{student.name || student.studentId}</p>
                           <p className="text-sm text-gray-500">{student.studentId}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleSelection(student.id)}
-                          className={`rounded-full px-4 py-2 text-sm font-medium ${selectedIds.includes(student.id) ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-slate-700 text-white hover:bg-slate-800'}`}
-                        >
-                          {selectedIds.includes(student.id) ? 'Remove' : 'Select'}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleMarkStatus(student.id, 'present')}
+                            disabled={markingStudentId === student.id}
+                            className="rounded-full px-3 py-1 text-xs font-medium bg-green-600 text-white hover:bg-green-700 disabled:bg-green-400"
+                            title="Mark Present"
+                          >
+                            PRESENT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMarkStatus(student.id, 'absent')}
+                            disabled={markingStudentId === student.id}
+                            className="rounded-full px-3 py-1 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400"
+                            title="Mark Absent"
+                          >
+                            ABSENT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMarkStatus(student.id, 'late')}
+                            disabled={markingStudentId === student.id}
+                            className="rounded-full px-3 py-1 text-xs font-medium bg-yellow-600 text-white hover:bg-yellow-700 disabled:bg-yellow-400"
+                            title="Mark Late"
+                          >
+                            LATE
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>

@@ -12,7 +12,7 @@ export function parseCSV(file) {
 }
 
 export function validateStudentCSV(data) {
-  const requiredFields = ['studentId', 'name', 'email', 'phone'];
+  const requiredFields = ['studentId', 'name'];
   const errors = [];
 
   data.forEach((row, index) => {
@@ -48,8 +48,8 @@ export function convertStudentDataForImport(csvData) {
   return csvData.map((row) => ({
     studentId: row.studentId.trim(),
     name: row.name.trim(),
-    email: row.email.trim(),
-    phone: row.phone.trim(),
+    email: row.email?.trim() || '',
+    phone: row.phone?.trim() || '',
     class: row.class?.trim() || '',
     section: row.section?.trim() || '',
     gender: row.gender?.trim() || '',

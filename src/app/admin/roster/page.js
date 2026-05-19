@@ -89,9 +89,9 @@ export default function RosterManagement() {
   };
 
   const handleDownloadTemplate = () => {
-    const templateCSV = `studentId,name,email,phone,class,section,gender,parentName,parentPhone,parentEmail
-S001,John Doe,john@example.com,9876543210,10,A,Male,Jane Doe,9876543211,jane@example.com
-S002,Jane Smith,jane.s@example.com,9876543212,10,A,Female,John Smith,9876543213,john.s@example.com`;
+    const templateCSV = `studentId,name,class,section,gender,parentName,parentPhone,parentEmail
+S001,John Doe,10,A,Male,Jane Doe,9876543211,jane@example.com
+S002,Jane Smith,10,A,Female,John Smith,9876543213,john.s@example.com`;
     
     downloadCSV(templateCSV, 'roster-template.csv');
   };
@@ -181,10 +181,10 @@ S002,Jane Smith,jane.s@example.com,9876543212,10,A,Female,John Smith,9876543213,
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h3 className="font-semibold text-gray-900 mb-2">CSV Format Requirements</h3>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Required columns: studentId, name, email, phone</li>
-                  <li>• Optional columns: class, section, gender, parentName, parentPhone, parentEmail</li>
-                  <li>• Email must be in valid format (user@domain.com)</li>
-                  <li>• Phone number must have at least 7 digits</li>
+                  <li><strong>Required columns:</strong> studentId, name</li>
+                  <li><strong>Optional columns:</strong> class, section, gender, parentName, parentPhone, parentEmail</li>
+                  <li>• All other columns will be ignored</li>
+                  <li>• No strict validation - upload flexibility for your convenience</li>
                 </ul>
               </div>
             </div>
