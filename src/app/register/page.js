@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { collection, doc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -11,6 +11,7 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -31,8 +32,6 @@ export default function Register() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const role = usersSnapshot.empty ? 'admin' : 'teacher';
 
       await setDoc(doc(db, 'users', user.uid), {
         email: email.trim().toLowerCase(),
@@ -98,6 +97,20 @@ export default function Register() {
               className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
               placeholder="Confirm your password"
             />
+          </div>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              Role
+            </label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+            >
+              <option value="student">Student</option>
+              <option value="teacher">Teacher</option>
+            </select>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           {message && <p className="text-sm text-green-600">{message}</p>}
