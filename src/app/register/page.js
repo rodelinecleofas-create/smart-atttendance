@@ -98,20 +98,33 @@ export default function Register() {
               placeholder="Confirm your password"
             />
           </div>
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-              Role
-            </label>
-            <select
-              id="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-            >
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-            </select>
-          </div>
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-gray-700">Select your role</legend>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-700 hover:border-indigo-500 hover:bg-white">
+                <input
+                  type="radio"
+                  name="role"
+                  value="student"
+                  checked={role === 'student'}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                Student
+              </label>
+              <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-700 hover:border-indigo-500 hover:bg-white">
+                <input
+                  type="radio"
+                  name="role"
+                  value="teacher"
+                  checked={role === 'teacher'}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                Teacher
+              </label>
+            </div>
+          </fieldset>
           {error && <p className="text-sm text-red-600">{error}</p>}
           {message && <p className="text-sm text-green-600">{message}</p>}
           <button
