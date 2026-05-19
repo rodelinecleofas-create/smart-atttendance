@@ -211,7 +211,7 @@ export default function Dashboard() {
 
 
           {/* Quick Action Buttons */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <button
               type="button"
               onClick={() => router.push('/attendance')}
@@ -232,33 +232,6 @@ export default function Dashboard() {
               className="rounded-lg bg-blue-600 px-6 py-4 text-white font-medium transition hover:bg-blue-700 flex items-center justify-center gap-2"
             >
               📈 Reports
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/admin')}
-              className="rounded-lg bg-purple-600 px-6 py-4 text-white font-medium transition hover:bg-purple-700 flex items-center justify-center gap-2"
-            >
-              ⚙️ Admin Panel
-            </button>
-          </div>
-
-          {/* Student Management */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => router.push('/admin/roster')}
-              className="rounded-lg bg-yellow-600 px-6 py-4 text-white font-medium transition hover:bg-yellow-700 text-left"
-            >
-              <div className="font-semibold">📥 Import/Export Roster</div>
-              <div className="text-sm text-yellow-100">Bulk manage students</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/settings')}
-              className="rounded-lg bg-gray-600 px-6 py-4 text-white font-medium transition hover:bg-gray-700 text-left"
-            >
-              <div className="font-semibold">⚙️ Account Settings</div>
-              <div className="text-sm text-gray-100">Manage profile and security</div>
             </button>
           </div>
 
