@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,7 @@ import { sanitizeEmail, sanitizeString } from '../../lib/sanitizer';
 
 export default function Register() {
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('student');
@@ -23,6 +24,11 @@ export default function Register() {
     setError('');
     setMessage('');
 
+    if (role === 'student' && !name.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -32,6 +38,7 @@ export default function Register() {
 
     try {
       const sanitizedEmail = sanitizeEmail(email);
+      const sanitizedName = sanitizeString(name);
       const sanitizedRole = sanitizeString(role);
 
       const userCredential = await createUserWithEmailAndPassword(auth, sanitizedEmail, password);
@@ -39,9 +46,20 @@ export default function Register() {
 
       await setDoc(doc(db, 'users', user.uid), {
         email: sanitizedEmail,
+        name: sanitizedName,
         role: sanitizedRole,
         createdAt: serverTimestamp(),
       });
+
+      if (sanitizedRole === 'student') {
+        await addDoc(collection(db, 'students'), {
+          userId: user.uid,
+          studentId: user.uid,
+          name: sanitizedName || sanitizedEmail.split('@')[0],
+          email: sanitizedEmail,
+          createdAt: serverTimestamp(),
+        });
+      }
 
       await sendEmailVerification(user);
       setMessage('Account created. Verification email sent.');
@@ -70,6 +88,21 @@ export default function Register() {
               required
               className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
               placeholder="you@example.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Full name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+              placeholder="Your full name"
             />
           </div>
 
