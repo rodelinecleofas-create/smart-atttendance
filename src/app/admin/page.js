@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   addDoc,
   collection,
@@ -29,7 +29,7 @@ export default function AdminPage() {
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingPeriod, setEditingPeriod] = useState(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const studentSnapshot = await getDocs(query(collection(db, 'students'), orderBy('name')));
       setStudents(studentSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
@@ -41,11 +41,17 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+
+    const syncMissingStudents = async () => {
+      await handleSyncRegisteredStudents();
+    };
+
+    syncMissingStudents();
+  }, [handleSyncRegisteredStudents, loadData]);
 
   const addStudent = async () => {
     setError('');
@@ -124,7 +130,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleSyncRegisteredStudents = async () => {
+  const handleSyncRegisteredStudents = useCallback(async () => {
     setError('');
     setMessage('');
     setSyncing(true);
@@ -194,7 +200,7 @@ export default function AdminPage() {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [loadData]);
 
   const deleteStudent = async (studentId) => {
     if (!window.confirm('Delete this student from the roster?')) return;

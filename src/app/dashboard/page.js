@@ -48,19 +48,29 @@ export default function Dashboard() {
 
         // If student, get student's own attendance records
         if (userRole === 'student') {
-          const studentSnapshot = await getDocs(
-            query(collection(db, 'students'), where('userId', '==', currentUser.uid))
-          );
+let studentSnapshot = await getDocs(
+          query(collection(db, 'students'), where('userId', '==', currentUser.uid))
+        );
+
+        if (studentSnapshot.docs.length === 0) {
+          const userEmail = currentUser.email?.toLowerCase();
+          if (userEmail) {
+            studentSnapshot = await getDocs(
+              query(collection(db, 'students'), where('email', '==', userEmail))
+            );
+          }
+        }
 
           if (studentSnapshot.docs.length > 0) {
             const studentData = studentSnapshot.docs[0];
-            const studentId = studentData.id;
+            const student = { id: studentData.id, ...studentData.data() };
+            const studentIdentifier = student.studentId || student.id;
 
             // Get all attendance records for this student
             const attendanceSnapshot = await getDocs(
               query(
                 collection(db, 'attendance'),
-                where('studentId', '==', studentId),
+                where('studentId', '==', studentIdentifier),
                 orderBy('date', 'desc'),
                 limit(50)
               )
@@ -124,7 +134,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         console.error('Error loading dashboard:', err);
-        setError('Unable to load dashboard. Please try again.');
+        setError(`Unable to load dashboard. Please try again. ${err?.message || ''}`);
       } finally {
         setLoading(false);
       }
