@@ -1,12 +1,13 @@
 ﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { onAuthStateChanged, sendEmailVerification, signOut } from 'firebase/auth';
+import { onAuthStateChanged, sendEmailVerification } from 'firebase/auth';
 import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import { useRouter } from 'next/navigation';
 import ProtectedPage from '../../components/ProtectedPage';
-import { AttendanceCard, AttendancePieChart, LoadingSpinner } from '../../components/Charts';
+import { LoadingSpinner } from '../../components/Charts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 function startOfDay(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -22,14 +23,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, total: 0 });
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, excused: 0, sick: 0, permission: 0, leave: 0, total: 0 });
   const [studentCount, setStudentCount] = useState(0);
   const [periodCount, setPeriodCount] = useState(0);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [students, setStudents] = useState([]);
   const [role, setRole] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [modalStatus, setModalStatus] = useState(null);
+  const [recentRecords, setRecentRecords] = useState([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -40,65 +40,98 @@ export default function Dashboard() {
       }
 
       setUser(currentUser);
-      setLoading(false);
 
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        setRole(userDoc.exists() ? userDoc.data().role : null);
-        const today = new Date();
-        const attendanceSnapshot = await getDocs(
-          query(
-            collection(db, 'attendance'),
-            where('date', '>=', startOfDay(today)),
-            where('date', '<', endOfDay(today))
-          )
-        );
+        const userRole = userDoc.exists() ? userDoc.data().role : null;
+        setRole(userRole);
 
-        const records = attendanceSnapshot.docs.map((doc) => doc.data());
-        setAttendanceRecords(records);
+        // If student, get student's own attendance records
+        if (userRole === 'student') {
+          const studentSnapshot = await getDocs(
+            query(collection(db, 'students'), where('userId', '==', currentUser.uid))
+          );
 
-        const counts = { present: 0, absent: 0, late: 0, total: attendanceSnapshot.size };
-        records.forEach((record) => {
-          const status = record.status;
-          if (status === 'present') counts.present += 1;
-          if (status === 'absent') counts.absent += 1;
-          if (status === 'late') counts.late += 1;
-        });
-        setStats(counts);
+          if (studentSnapshot.docs.length > 0) {
+            const studentData = studentSnapshot.docs[0];
+            const studentId = studentData.id;
 
-        const studentSnapshot = await getDocs(collection(db, 'students'));
-        const studentsData = studentSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setStudents(studentsData);
-        setStudentCount(studentSnapshot.size);
+            // Get all attendance records for this student
+            const attendanceSnapshot = await getDocs(
+              query(
+                collection(db, 'attendance'),
+                where('studentId', '==', studentId),
+                orderBy('date', 'desc'),
+                limit(50)
+              )
+            );
 
-        const periodSnapshot = await getDocs(collection(db, 'periods'));
-        setPeriodCount(periodSnapshot.size);
+            const records = attendanceSnapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+              date: doc.data().date?.toDate?.() || new Date(doc.data().date),
+            }));
+            setAttendanceRecords(records);
+            setRecentRecords(records.slice(0, 5));
+
+            const counts = { present: 0, absent: 0, late: 0, excused: 0, sick: 0, permission: 0, leave: 0, total: records.length };
+            records.forEach((record) => {
+              const status = record.status;
+              if (status === 'present') counts.present += 1;
+              else if (status === 'absent') counts.absent += 1;
+              else if (status === 'late') counts.late += 1;
+              else if (status === 'excused') counts.excused += 1;
+              else if (status === 'sick') counts.sick += 1;
+              else if (status === 'permission') counts.permission += 1;
+              else if (status === 'leave') counts.leave += 1;
+            });
+            setStats(counts);
+          }
+        } else {
+          // For teachers/admins, show today's attendance
+          const today = new Date();
+          const attendanceSnapshot = await getDocs(
+            query(
+              collection(db, 'attendance'),
+              where('date', '>=', startOfDay(today)),
+              where('date', '<', endOfDay(today))
+            )
+          );
+
+          const records = attendanceSnapshot.docs.map((doc) => doc.data());
+          setAttendanceRecords(records);
+
+          const counts = { present: 0, absent: 0, late: 0, excused: 0, sick: 0, permission: 0, leave: 0, total: attendanceSnapshot.size };
+          records.forEach((record) => {
+            const status = record.status;
+            if (status === 'present') counts.present += 1;
+            else if (status === 'absent') counts.absent += 1;
+            else if (status === 'late') counts.late += 1;
+            else if (status === 'excused') counts.excused += 1;
+            else if (status === 'sick') counts.sick += 1;
+            else if (status === 'permission') counts.permission += 1;
+            else if (status === 'leave') counts.leave += 1;
+          });
+          setStats(counts);
+
+          const studentSnapshot = await getDocs(collection(db, 'students'));
+          const studentsData = studentSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          setStudents(studentsData);
+          setStudentCount(studentSnapshot.size);
+
+          const periodSnapshot = await getDocs(collection(db, 'periods'));
+          setPeriodCount(periodSnapshot.size);
+        }
       } catch (err) {
-        setError('Unable to load dashboard stats.');
+        console.error('Error loading dashboard:', err);
+        setError('Unable to load dashboard. Please try again.');
+      } finally {
+        setLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, [router]);
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch {
-      setError('Unable to sign out. Please try again.');
-    }
-  };
-
-  const showStatusModal = (status) => {
-    setModalStatus(status);
-    setShowModal(true);
-  };
-
-  const getStudentsByStatus = () => {
-    if (!modalStatus) return [];
-    return attendanceRecords.filter((record) => record.status === modalStatus);
-  };
 
   const handleResendVerification = async () => {
     if (!user) return;
@@ -112,181 +145,289 @@ export default function Dashboard() {
 
   const verifyLabel = useMemo(() => {
     if (!user) return '';
-    return user.emailVerified ? 'Verified account' : 'Email not verified';
+    return user.emailVerified ? '✅ Verified' : '⚠️ Email not verified';
   }, [user]);
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
-  const chartData = [
-    { name: 'Present', value: stats.present },
-    { name: 'Absent', value: stats.absent },
-    { name: 'Late', value: stats.late },
-  ];
+  const attendanceChartData = [
+    { name: 'Present', value: stats.present, fill: '#10b981' },
+    { name: 'Absent', value: stats.absent, fill: '#ef4444' },
+    { name: 'Late', value: stats.late, fill: '#f59e0b' },
+    { name: 'Excused', value: stats.excused, fill: '#6366f1' },
+    { name: 'Sick', value: stats.sick, fill: '#8b5cf6' },
+    { name: 'Permission', value: stats.permission, fill: '#ec4899' },
+    { name: 'Leave', value: stats.leave, fill: '#06b6d4' },
+  ].filter(d => d.value > 0);
+
+  const colors = ['#10b981', '#ef4444', '#f59e0b', '#6366f1', '#8b5cf6', '#ec4899', '#06b6d4'];
 
   return (
     <ProtectedPage>
-      <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl space-y-6">
-          {/* Header */}
-          <div className="rounded-lg bg-white p-6 shadow">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl space-y-8">
+          {/* Header Section */}
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div>
-                <h1 className="text-3xl font-semibold text-gray-900">Welcome back</h1>
-                <p className="mt-2 text-gray-600">Manage attendance, review reports, and keep your roster up to date.</p>
+                <h1 className="text-4xl font-bold text-gray-900">Welcome, {user?.email?.split('@')[0]}</h1>
+                <p className="mt-2 text-gray-600 text-lg">
+                  {role === 'student' ? 'View your attendance records and statistics' : 'Manage attendance and view reports'}
+                </p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-blue-50 p-4 text-center">
-                <p className="text-sm font-medium text-blue-700">{verifyLabel}</p>
-                {!user?.emailVerified && (
+              <div className="flex items-center gap-2 bg-blue-50 rounded-lg px-4 py-2 w-fit">
+                <span className="text-2xl">{user?.emailVerified ? '✅' : '⚠️'}</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{verifyLabel}</p>
+                  {!user?.emailVerified && (
+                    <button
+                      onClick={handleResendVerification}
+                      className="text-xs text-blue-600 hover:underline mt-1"
+                    >
+                      Resend email
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded text-red-700">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded text-green-700">
+              {message}
+            </div>
+          )}
+
+          {/* Student View */}
+          {role === 'student' ? (
+            <>
+              {/* Attendance Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                  <p className="text-gray-600 text-sm font-medium">Present</p>
+                  <p className="text-3xl font-bold text-green-600 mt-2">{stats.present}</p>
+                  <p className="text-xs text-gray-500 mt-2">{stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0}%</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+                  <p className="text-gray-600 text-sm font-medium">Absent</p>
+                  <p className="text-3xl font-bold text-red-600 mt-2">{stats.absent}</p>
+                  <p className="text-xs text-gray-500 mt-2">{stats.total > 0 ? Math.round((stats.absent / stats.total) * 100) : 0}%</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
+                  <p className="text-gray-600 text-sm font-medium">Late</p>
+                  <p className="text-3xl font-bold text-yellow-600 mt-2">{stats.late}</p>
+                  <p className="text-xs text-gray-500 mt-2">{stats.total > 0 ? Math.round((stats.late / stats.total) * 100) : 0}%</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                  <p className="text-gray-600 text-sm font-medium">Total Records</p>
+                  <p className="text-3xl font-bold text-blue-600 mt-2">{stats.total}</p>
+                  <p className="text-xs text-gray-500 mt-2">All time</p>
+                </div>
+              </div>
+
+              {/* Attendance Rate Overview */}
+              {stats.total > 0 && (
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Attendance Overview</h2>
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Pie Chart */}
+                    <div className="flex justify-center">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie data={attendanceChartData} cx="50%" cy="50%" labelLine={false} label={(entry) => `${entry.name}: ${entry.value}`} outerRadius={100} fill="#8884d8" dataKey="value">
+                            {attendanceChartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Stats Summary */}
+                    <div className="space-y-4">
+                      <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">✅ Present</span>
+                          <span className="text-2xl font-bold text-green-600">{stats.present}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">❌ Absent</span>
+                          <span className="text-2xl font-bold text-red-600">{stats.absent}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">⏰ Late</span>
+                          <span className="text-2xl font-bold text-yellow-600">{stats.late}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">📊 Attendance Rate</span>
+                          <span className="text-2xl font-bold text-purple-600">{Math.round((stats.present / stats.total) * 100)}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Recent Records */}
+              {recentRecords.length > 0 && (
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Attendance Records</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2 border-gray-200">
+                          <th className="text-left py-3 px-4 text-gray-700 font-semibold">Date</th>
+                          <th className="text-left py-3 px-4 text-gray-700 font-semibold">Period</th>
+                          <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentRecords.map((record) => (
+                          <tr key={record.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 text-gray-900">{record.date?.toLocaleDateString()}</td>
+                            <td className="py-3 px-4 text-gray-600">{record.classPeriod}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                record.status === 'present' ? 'bg-green-100 text-green-800' :
+                                record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                   <button
-                    type="button"
-                    onClick={handleResendVerification}
-                    className="mt-3 inline-flex rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    onClick={() => router.push('/records')}
+                    className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition"
                   >
-                    Resend verification
+                    View All Records
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {error && <div className="rounded-lg bg-red-50 p-4 text-red-700">{error}</div>}
-          {message && <div className="rounded-lg bg-green-50 p-4 text-green-700">{message}</div>}
-
-          {/* Main Stats Cards */}
-          <div className="grid gap-6 md:grid-cols-4">
-            <button
-              onClick={() => router.push('/admin')}
-              className="rounded-lg bg-blue-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-blue-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Students</p>
-              <p className="text-3xl font-bold text-blue-600">{studentCount}</p>
-            </button>
-            <button
-              onClick={() => router.push('/admin')}
-              className="rounded-lg bg-purple-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-purple-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Sessions</p>
-              <p className="text-3xl font-bold text-purple-600">{periodCount}</p>
-            </button>
-            <button
-              onClick={() => router.push('/records')}
-              className="rounded-lg bg-green-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-green-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Total Attendance</p>
-              <p className="text-3xl font-bold text-green-600">{stats.total}</p>
-            </button>
-            <button
-              onClick={() => router.push('/records')}
-              className="rounded-lg bg-yellow-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-yellow-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Attendance Rate</p>
-              <p className="text-3xl font-bold text-yellow-600">{stats.total > 0 ? `${Math.round((stats.present / stats.total) * 100)}%` : '0%'}</p>
-            </button>
-          </div>
-
-          {/* Attendance Stats */}
-          <div className="grid gap-6 md:grid-cols-3">
-            <button
-              onClick={() => showStatusModal('present')}
-              className="rounded-lg bg-green-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-green-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Present</p>
-              <p className="text-3xl font-bold text-green-600">{stats.present}</p>
-            </button>
-            <button
-              onClick={() => showStatusModal('absent')}
-              className="rounded-lg bg-red-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-red-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Absent</p>
-              <p className="text-3xl font-bold text-red-600">{stats.absent}</p>
-            </button>
-            <button
-              onClick={() => showStatusModal('late')}
-              className="rounded-lg bg-yellow-50 p-6 shadow hover:shadow-lg transition cursor-pointer text-left border-2 border-transparent hover:border-yellow-400"
-            >
-              <p className="text-sm font-medium text-gray-600">Late</p>
-              <p className="text-3xl font-bold text-yellow-600">{stats.late}</p>
-            </button>
-          </div>
-
-
-
-          {/* Quick Action Buttons */}
-          {role === 'teacher' || role === 'admin' ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => router.push('/attendance')}
-                className="rounded-lg bg-indigo-600 px-6 py-4 text-white font-medium transition hover:bg-indigo-700 flex items-center justify-center gap-2"
-              >
-                📋 Mark Attendance
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/records')}
-                className="rounded-lg bg-emerald-600 px-6 py-4 text-white font-medium transition hover:bg-emerald-700 flex items-center justify-center gap-2"
-              >
-                📊 View Records
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/reports')}
-                className="rounded-lg bg-blue-600 px-6 py-4 text-white font-medium transition hover:bg-blue-700 flex items-center justify-center gap-2"
-              >
-                📈 Reports
-              </button>
-            </div>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-gray-900">Student access only</h2>
-              <p className="mt-2 text-gray-600">
-                As a student, you can view your dashboard here. Teacher tools like attendance marking, records, and reports are available only to teachers and administrators.
-              </p>
-            </div>
+            <>
+              {/* Teacher/Admin View */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                  <p className="text-gray-600 text-sm font-medium">Total Students</p>
+                  <p className="text-3xl font-bold text-blue-600 mt-2">{studentCount}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+                  <p className="text-gray-600 text-sm font-medium">Sessions</p>
+                  <p className="text-3xl font-bold text-purple-600 mt-2">{periodCount}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                  <p className="text-gray-600 text-sm font-medium">Present Today</p>
+                  <p className="text-3xl font-bold text-green-600 mt-2">{stats.present}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+                  <p className="text-gray-600 text-sm font-medium">Absent Today</p>
+                  <p className="text-3xl font-bold text-red-600 mt-2">{stats.absent}</p>
+                </div>
+              </div>
+
+              {/* Quick Action Buttons */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => router.push('/attendance')}
+                  className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition transform hover:scale-105"
+                >
+                  📋 Mark Attendance
+                </button>
+                <button
+                  onClick={() => router.push('/records')}
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition transform hover:scale-105"
+                >
+                  📊 View Records
+                </button>
+                <button
+                  onClick={() => router.push('/reports')}
+                  className="bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-bold py-4 px-6 rounded-lg shadow-lg transition transform hover:scale-105"
+                >
+                  📈 Reports
+                </button>
+              </div>
+
+              {/* Today's Attendance Summary */}
+              {stats.total > 0 && (
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Today&apos;s Attendance Summary</h2>
+                  <div className="grid md:grid-cols-2 gap-8">
+                    {/* Chart */}
+                    <div className="flex justify-center">
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[{
+                          name: 'Attendance',
+                          Present: stats.present,
+                          Absent: stats.absent,
+                          Late: stats.late,
+                        }]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="Present" fill="#10b981" />
+                          <Bar dataKey="Absent" fill="#ef4444" />
+                          <Bar dataKey="Late" fill="#f59e0b" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Summary Cards */}
+                    <div className="space-y-4">
+                      <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">✅ Present</span>
+                          <span className="text-2xl font-bold text-green-600">{stats.present} / {stats.total}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-red-50 to-red-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">❌ Absent</span>
+                          <span className="text-2xl font-bold text-red-600">{stats.absent} / {stats.total}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">⏰ Late</span>
+                          <span className="text-2xl font-bold text-yellow-600">{stats.late} / {stats.total}</span>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-700 font-medium">📊 Total Marked</span>
+                          <span className="text-2xl font-bold text-blue-600">{stats.total}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-
-      {/* Student Details Modal */}
-      {showModal && modalStatus && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900 capitalize">
-                  {modalStatus === 'present' && '✅ Present'}
-                  {modalStatus === 'absent' && '❌ Absent'}
-                  {modalStatus === 'late' && '⏰ Late'}
-                </h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">Students marked as {modalStatus} today</p>
-            </div>
-            <div className="p-6">
-              {getStudentsByStatus().length === 0 ? (
-                <p className="text-center text-gray-500">No students marked as {modalStatus} today</p>
-              ) : (
-                <ul className="space-y-2">
-                  {getStudentsByStatus().map((record, idx) => (
-                    <li key={idx} className="p-3 bg-gray-50 rounded-lg">
-                      <p className="font-semibold text-gray-900">{record.studentName}</p>
-                      <p className="text-sm text-gray-600">{record.studentId}</p>
-                      <p className="text-xs text-gray-500 mt-1">Period: {record.classPeriod}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </ProtectedPage>
   );
 }
