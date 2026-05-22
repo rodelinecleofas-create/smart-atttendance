@@ -1,75 +1,37 @@
 ﻿# Smart Attend
 
-A comprehensive attendance management system built with Next.js, Tailwind CSS, Firebase, and Recharts.
+Smart Attend is a school attendance management system built with Next.js, Tailwind CSS, Firebase, and Recharts. It helps administrators, teachers, students, and parents manage attendance with role-based access, reporting, and communication tools.
 
-## ✨ Features
+## What the System Does
 
-### Core Features
-- Firebase Authentication (signup, login, password reset)
-- Role-based access control (Admin, Teacher, Parent, Student)
-- Admin panel for student and attendance session management
-- Attendance marking with multiple statuses
-- Filterable attendance reporting
+- Provides secure Firebase authentication for users with roles: Admin, Teacher, Parent, and Student.
+- Lets teachers and admins record daily attendance using categories like Present, Absent, Late, Excused, Sick, Permission, and Leave.
+- Enables admin users to manage student data, import/export CSV rosters, and view student profile details.
+- Generates attendance reports, charts, and analytics for trends, percentages, and record review.
+- Stores audit logs for key actions and allows review of attendance history and change tracking.
+- Supports email notifications for attendance alerts and user verification reminders.
 
-### 📊 New Analytics & Reporting
-- Real-time attendance charts and visualizations
-- Weekly and monthly attendance trends
-- Student-wise attendance summaries
-- PDF export for reports
-- CSV download capabilities
-- Attendance percentage calculations
+## Main Pages
 
-### 📋 Roster Management
-- Bulk import students from CSV
-- Bulk export student data
-- Student profile pages with contact information
-- Parent contact details management
+- `/` — Home/landing page
+- `/login` — Login page
+- `/register` — Registration page
+- `/dashboard` — Analytics dashboard
+- `/attendance` — Attendance marking and tracking
+- `/records` — Attendance record list
+- `/reports` — Reports and exports
+- `/settings` — Account settings
+- `/admin` — Admin control panel
+- `/admin/roster` — Bulk student import/export
+- `/student/[id]` — Student profile page
+- `/audit-logs` — Audit log review
 
-### 📌 Attendance Statuses
-- Present
-- Absent
-- Late
-- Excused
-- Sick
-- Permission
-- Leave
-- Custom status labels support
-
-### 👤 User Management
-- Admin account management
-- Teacher account creation
-- Parent login views
-- Student login views
-- Account settings page
-- Password change functionality
-
-### 📧 Notifications
-- Email alerts for absent students
-- Verification email reminders
-- Daily attendance summary emails
-- Email notification service integration
-
-### 📝 Audit & History
-- Audit logging of all actions
-- History tracking for attendance records
-- User activity monitoring
-- Change history view
-
-### 🎨 UI/UX Improvements
-- Dashboard with analytics cards
-- Empty state screens
-- Error handling and user feedback
-- Loading states
-- Responsive design
-- Search and filter functionality
-- Pagination support
-
-## Getting Started
+## Setup
 
 1. Clone the repository
 2. Install dependencies: `npm install`
 3. Create a Firebase project and enable Authentication and Firestore
-4. Add your Firebase variables to `.env.local`
+4. Add Firebase configuration values to `.env.local`
 
 ### Required environment variables
 
@@ -82,41 +44,14 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-## Running Locally
+## Run Locally
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## Admin role
-
-The first registered user is granted the `admin` role automatically. Additional users are created as `teacher` by default.
-
-## Firebase Rules
-
-The project includes `firestore.rules` for role-based access control. Deploy the rules with the Firebase CLI:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
-## Pages and Features
-
-- `/` - Landing page
-- `/login` - User login
-- `/register` - User registration
-- `/dashboard` - Main dashboard with analytics
-- `/attendance` - Mark attendance
-- `/records` - View attendance records
-- `/reports` - Generate reports and analytics
-- `/settings` - Account settings and security
-- `/admin` - Admin panel
-- `/admin/roster` - Bulk import/export students
-- `/student/[id]` - Student profile page
-- `/audit-logs` - View audit logs
+Then open `http://localhost:3000`.
 
 ## Deployment
 
-Deploy to Vercel or Firebase Hosting for production.
+This app is configured for deployment on Vercel. Use the Vercel dashboard or CLI to deploy the `smart-attend` project.
