@@ -42,7 +42,10 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account", ...}
 ```
+
+- `FIREBASE_SERVICE_ACCOUNT_KEY` must contain the Firebase service account JSON payload as a single-line string for server-side admin account creation.
 
 ## Run Locally
 

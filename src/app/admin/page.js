@@ -13,7 +13,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { db } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
 import ProtectedPage from '../../components/ProtectedPage';
 
 export default function AdminPage() {
@@ -28,6 +28,59 @@ export default function AdminPage() {
   const [message, setMessage] = useState('');
   const [editingStudent, setEditingStudent] = useState(null);
   const [editingPeriod, setEditingPeriod] = useState(null);
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('admin');
+  const [creatingUser, setCreatingUser] = useState(false);
+
+  const createUserAccount = async () => {
+    setError('');
+    setMessage('');
+
+    if (!newUserEmail.trim() || !newUserName.trim() || !newUserPassword) {
+      setError('Email, name, and password are required.');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Admin authentication is required.');
+      }
+
+      const idToken = await currentUser.getIdToken();
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          email: newUserEmail,
+          name: newUserName,
+          password: newUserPassword,
+          role: newUserRole,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Unable to create the user account.');
+      }
+
+      setMessage(`Created ${data.role} account for ${data.email}.`);
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserPassword('');
+      setNewUserRole('admin');
+    } catch (err) {
+      setError(err.message || 'Unable to create the user account.');
+    } finally {
+      setCreatingUser(false);
+    }
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -442,6 +495,62 @@ export default function AdminPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-900">Create a new user account</h2>
+            <p className="mt-2 text-sm text-gray-600">Create an admin or other user account with a role assignment.</p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Email</span>
+                <input
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="admin@example.com"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Full name</span>
+                <input
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Administrator Name"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Password</span>
+                <input
+                  type="password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  className="mt-1 block w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                  placeholder="Secure password"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">Role</span>
+                <select
+                  value={newUserRole}
+                  onChange={(e) => setNewUserRole(e.target.value)}
+                  className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="student">Student</option>
+                  <option value="parent">Parent</option>
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={createUserAccount}
+              disabled={creatingUser}
+              className="mt-5 rounded-3xl bg-indigo-600 px-6 py-3 text-white hover:bg-indigo-700 disabled:bg-indigo-300"
+            >
+              {creatingUser ? 'Creating user…' : 'Create user account'}
+            </button>
           </div>
         </div>
       </div>
