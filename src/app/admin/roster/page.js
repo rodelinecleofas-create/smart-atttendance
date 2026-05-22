@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { addDoc, collection, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, getDocs, query, orderBy, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 import ProtectedPage from '../../../components/ProtectedPage';
 import { parseCSV, validateStudentCSV, convertStudentDataForImport, generateCSVFromStudents, downloadCSV } from '../../../lib/csvUtils';
@@ -13,6 +13,7 @@ export default function RosterManagement() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [importResults, setImportResults] = useState(null);
+  const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState('import');
 
   const handleFileUpload = async (e) => {
@@ -88,6 +89,77 @@ export default function RosterManagement() {
     }
   };
 
+  const handleSyncRegisteredStudents = async () => {
+    setError('');
+    setMessage('');
+    setSyncing(true);
+
+    try {
+      const [userSnapshot, studentSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+        getDocs(collection(db, 'students')),
+      ]);
+
+      const studentsByUserId = new Map();
+      const studentsByEmail = new Map();
+
+      studentSnapshot.docs.forEach((studentDoc) => {
+        const data = studentDoc.data();
+        if (data.userId) {
+          studentsByUserId.set(data.userId, { id: studentDoc.id, ...data });
+        }
+        if (data.email) {
+          studentsByEmail.set(data.email.toLowerCase(), { id: studentDoc.id, ...data });
+        }
+      });
+
+      let createdCount = 0;
+      let linkedCount = 0;
+      let existingCount = 0;
+
+      for (const userDoc of userSnapshot.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        const userEmail = (userData.email || '').toLowerCase();
+
+        if (studentsByUserId.has(userId)) {
+          existingCount += 1;
+          continue;
+        }
+
+        const existingStudentByEmail = userEmail ? studentsByEmail.get(userEmail) : null;
+        if (existingStudentByEmail) {
+          await updateDoc(doc(db, 'students', existingStudentByEmail.id), {
+            userId,
+            studentId: existingStudentByEmail.studentId || userId,
+            name: existingStudentByEmail.name || userData.name || userEmail.split('@')[0],
+            email: userData.email || existingStudentByEmail.email,
+            updatedAt: serverTimestamp(),
+          });
+          linkedCount += 1;
+          continue;
+        }
+
+        await addDoc(collection(db, 'students'), {
+          userId,
+          studentId: userId,
+          name: userData.name || userEmail.split('@')[0],
+          email: userData.email || '',
+          createdAt: serverTimestamp(),
+        });
+        createdCount += 1;
+      }
+
+      setMessage(
+        `Student sync complete: ${createdCount} added, ${linkedCount} linked to existing roster records, ${existingCount} already connected.`
+      );
+    } catch (err) {
+      setError(`Student sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleDownloadTemplate = () => {
     const templateCSV = `studentId,name,class,section,gender,parentName,parentPhone,parentEmail
 S001,John Doe,10,A,Male,Jane Doe,9876543211,jane@example.com
@@ -102,6 +174,19 @@ S002,Jane Smith,10,A,Female,John Smith,9876543213,john.s@example.com`;
         <div className="mx-auto max-w-4xl">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Roster Management</h1>
           <p className="text-gray-600 mb-8">Import or export student roster data</p>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-8">
+            <div>
+              <p className="text-sm text-gray-600">Sync student user accounts into the roster so teachers can see all registered students.</p>
+            </div>
+            <button
+              onClick={handleSyncRegisteredStudents}
+              disabled={syncing}
+              className="rounded-3xl bg-indigo-600 px-5 py-3 text-white hover:bg-indigo-700 disabled:bg-indigo-300"
+            >
+              {syncing ? 'Syncing students…' : 'Sync registered students'}
+            </button>
+          </div>
 
           {/* Tab Navigation */}
           <div className="flex gap-4 mb-8 border-b">

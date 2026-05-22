@@ -11,6 +11,7 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import ProtectedPage from '../../components/ProtectedPage';
@@ -22,6 +23,7 @@ export default function AdminPage() {
   const [newStudentName, setNewStudentName] = useState('');
   const [newPeriodName, setNewPeriodName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [editingStudent, setEditingStudent] = useState(null);
@@ -122,6 +124,78 @@ export default function AdminPage() {
     }
   };
 
+  const handleSyncRegisteredStudents = async () => {
+    setError('');
+    setMessage('');
+    setSyncing(true);
+
+    try {
+      const [userSnapshot, studentSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+        getDocs(collection(db, 'students')),
+      ]);
+
+      const studentsByUserId = new Map();
+      const studentsByEmail = new Map();
+
+      studentSnapshot.docs.forEach((studentDoc) => {
+        const data = studentDoc.data();
+        if (data.userId) {
+          studentsByUserId.set(data.userId, { id: studentDoc.id, ...data });
+        }
+        if (data.email) {
+          studentsByEmail.set(data.email.toLowerCase(), { id: studentDoc.id, ...data });
+        }
+      });
+
+      let createdCount = 0;
+      let linkedCount = 0;
+      let existingCount = 0;
+
+      for (const userDoc of userSnapshot.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        const userEmail = (userData.email || '').toLowerCase();
+
+        if (studentsByUserId.has(userId)) {
+          existingCount += 1;
+          continue;
+        }
+
+        const existingStudentByEmail = userEmail ? studentsByEmail.get(userEmail) : null;
+        if (existingStudentByEmail) {
+          await updateDoc(doc(db, 'students', existingStudentByEmail.id), {
+            userId,
+            studentId: existingStudentByEmail.studentId || userId,
+            name: existingStudentByEmail.name || userData.name || userEmail.split('@')[0],
+            email: userData.email || existingStudentByEmail.email,
+            updatedAt: serverTimestamp(),
+          });
+          linkedCount += 1;
+          continue;
+        }
+
+        await addDoc(collection(db, 'students'), {
+          userId,
+          studentId: userId,
+          name: userData.name || userEmail.split('@')[0],
+          email: userData.email || '',
+          createdAt: serverTimestamp(),
+        });
+        createdCount += 1;
+      }
+
+      setMessage(
+        `Student sync complete: ${createdCount} added, ${linkedCount} linked to existing roster records, ${existingCount} already connected.`
+      );
+      loadData();
+    } catch (err) {
+      setError(`Student sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const deleteStudent = async (studentId) => {
     if (!window.confirm('Delete this student from the roster?')) return;
     try {
@@ -167,6 +241,22 @@ export default function AdminPage() {
 
           {error && <div className="rounded-3xl bg-red-50 p-6 text-red-700">{error}</div>}
           {message && <div className="rounded-3xl bg-emerald-50 p-6 text-emerald-700">{message}</div>}
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-600">
+                Sync registered student user accounts into the roster so teachers can mark attendance for all students.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSyncRegisteredStudents}
+              disabled={syncing}
+              className="rounded-3xl bg-indigo-600 px-6 py-3 text-white hover:bg-indigo-700 disabled:bg-indigo-300"
+            >
+              {syncing ? 'Syncing students…' : 'Sync registered students'}
+            </button>
+          </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-3xl bg-white p-6 shadow-sm">
