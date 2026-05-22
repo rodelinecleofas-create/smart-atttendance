@@ -96,6 +96,78 @@ export default function AdminPage() {
     }
   }, []);
 
+  const handleSyncRegisteredStudents = useCallback(async () => {
+    setError('');
+    setMessage('');
+    setSyncing(true);
+
+    try {
+      const [userSnapshot, studentSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
+        getDocs(collection(db, 'students')),
+      ]);
+
+      const studentsByUserId = new Map();
+      const studentsByEmail = new Map();
+
+      studentSnapshot.docs.forEach((studentDoc) => {
+        const data = studentDoc.data();
+        if (data.userId) {
+          studentsByUserId.set(data.userId, { id: studentDoc.id, ...data });
+        }
+        if (data.email) {
+          studentsByEmail.set(data.email.toLowerCase(), { id: studentDoc.id, ...data });
+        }
+      });
+
+      let createdCount = 0;
+      let linkedCount = 0;
+      let existingCount = 0;
+
+      for (const userDoc of userSnapshot.docs) {
+        const userData = userDoc.data();
+        const userId = userDoc.id;
+        const userEmail = (userData.email || '').toLowerCase();
+
+        if (studentsByUserId.has(userId)) {
+          existingCount += 1;
+          continue;
+        }
+
+        const existingStudentByEmail = userEmail ? studentsByEmail.get(userEmail) : null;
+        if (existingStudentByEmail) {
+          await updateDoc(doc(db, 'students', existingStudentByEmail.id), {
+            userId,
+            studentId: existingStudentByEmail.studentId || userId,
+            name: existingStudentByEmail.name || userData.name || userEmail.split('@')[0],
+            email: userData.email || existingStudentByEmail.email,
+            updatedAt: serverTimestamp(),
+          });
+          linkedCount += 1;
+          continue;
+        }
+
+        await addDoc(collection(db, 'students'), {
+          userId,
+          studentId: userId,
+          name: userData.name || userEmail.split('@')[0],
+          email: userData.email || '',
+          createdAt: serverTimestamp(),
+        });
+        createdCount += 1;
+      }
+
+      setMessage(
+        `Student sync complete: ${createdCount} added, ${linkedCount} linked to existing roster records, ${existingCount} already connected.`
+      );
+      loadData();
+    } catch (err) {
+      setError(`Student sync failed: ${err.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadData]);
+
   useEffect(() => {
     loadData();
 
@@ -182,78 +254,6 @@ export default function AdminPage() {
       setError('Unable to update session.');
     }
   };
-
-  const handleSyncRegisteredStudents = useCallback(async () => {
-    setError('');
-    setMessage('');
-    setSyncing(true);
-
-    try {
-      const [userSnapshot, studentSnapshot] = await Promise.all([
-        getDocs(query(collection(db, 'users'), where('role', '==', 'student'))),
-        getDocs(collection(db, 'students')),
-      ]);
-
-      const studentsByUserId = new Map();
-      const studentsByEmail = new Map();
-
-      studentSnapshot.docs.forEach((studentDoc) => {
-        const data = studentDoc.data();
-        if (data.userId) {
-          studentsByUserId.set(data.userId, { id: studentDoc.id, ...data });
-        }
-        if (data.email) {
-          studentsByEmail.set(data.email.toLowerCase(), { id: studentDoc.id, ...data });
-        }
-      });
-
-      let createdCount = 0;
-      let linkedCount = 0;
-      let existingCount = 0;
-
-      for (const userDoc of userSnapshot.docs) {
-        const userData = userDoc.data();
-        const userId = userDoc.id;
-        const userEmail = (userData.email || '').toLowerCase();
-
-        if (studentsByUserId.has(userId)) {
-          existingCount += 1;
-          continue;
-        }
-
-        const existingStudentByEmail = userEmail ? studentsByEmail.get(userEmail) : null;
-        if (existingStudentByEmail) {
-          await updateDoc(doc(db, 'students', existingStudentByEmail.id), {
-            userId,
-            studentId: existingStudentByEmail.studentId || userId,
-            name: existingStudentByEmail.name || userData.name || userEmail.split('@')[0],
-            email: userData.email || existingStudentByEmail.email,
-            updatedAt: serverTimestamp(),
-          });
-          linkedCount += 1;
-          continue;
-        }
-
-        await addDoc(collection(db, 'students'), {
-          userId,
-          studentId: userId,
-          name: userData.name || userEmail.split('@')[0],
-          email: userData.email || '',
-          createdAt: serverTimestamp(),
-        });
-        createdCount += 1;
-      }
-
-      setMessage(
-        `Student sync complete: ${createdCount} added, ${linkedCount} linked to existing roster records, ${existingCount} already connected.`
-      );
-      loadData();
-    } catch (err) {
-      setError(`Student sync failed: ${err.message}`);
-    } finally {
-      setSyncing(false);
-    }
-  }, [loadData]);
 
   const deleteStudent = async (studentId) => {
     if (!window.confirm('Delete this student from the roster?')) return;
