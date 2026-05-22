@@ -246,17 +246,6 @@ export default function Dashboard() {
               </p>
             </div>
           )}
-
-          {/* Logout Button */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg bg-red-600 px-6 py-3 text-white font-medium transition hover:bg-red-700"
-            >
-              Logout
-            </button>
-          </div>
         </div>
       </div>
 
