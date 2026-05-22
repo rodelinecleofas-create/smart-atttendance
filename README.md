@@ -15,7 +15,7 @@ Smart Attend is a school attendance management system built with Next.js, Tailwi
 
 - `/` — Home/landing page
 - `/login` — Login page
-- `/register` — Registration page
+- `/register` — Registration page (includes admin signup)
 - `/dashboard` — Analytics dashboard
 - `/attendance` — Attendance marking and tracking
 - `/records` — Attendance record list

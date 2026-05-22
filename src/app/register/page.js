@@ -160,6 +160,17 @@ export default function Register() {
                 />
                 Teacher
               </label>
+              <label className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-700 hover:border-indigo-500 hover:bg-white">
+                <input
+                  type="radio"
+                  name="role"
+                  value="admin"
+                  checked={role === 'admin'}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                />
+                Admin
+              </label>
             </div>
           </fieldset>
           {error && <p className="text-sm text-red-600">{error}</p>}
