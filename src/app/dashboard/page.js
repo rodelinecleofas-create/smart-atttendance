@@ -71,16 +71,17 @@ let studentSnapshot = await getDocs(
               query(
                 collection(db, 'attendance'),
                 where('studentId', '==', studentIdentifier),
-                orderBy('date', 'desc'),
                 limit(50)
               )
             );
 
-            const records = attendanceSnapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-              date: doc.data().date?.toDate?.() || new Date(doc.data().date),
-            }));
+            const records = attendanceSnapshot.docs
+              .map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+                date: doc.data().date?.toDate?.() || new Date(doc.data().date),
+              }))
+              .sort((a, b) => b.date - a.date);
             setAttendanceRecords(records);
             setRecentRecords(records.slice(0, 5));
 
