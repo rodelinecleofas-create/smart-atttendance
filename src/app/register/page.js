@@ -6,6 +6,7 @@ import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { sanitizeEmail, sanitizeString } from '../../lib/sanitizer';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -30,12 +31,15 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const sanitizedEmail = sanitizeEmail(email);
+      const sanitizedRole = sanitizeString(role);
+
+      const userCredential = await createUserWithEmailAndPassword(auth, sanitizedEmail, password);
       const user = userCredential.user;
 
       await setDoc(doc(db, 'users', user.uid), {
-        email: email.trim().toLowerCase(),
-        role,
+        email: sanitizedEmail,
+        role: sanitizedRole,
         createdAt: serverTimestamp(),
       });
 

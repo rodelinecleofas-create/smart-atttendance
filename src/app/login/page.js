@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../lib/firebase';
 import { useRouter } from 'next/navigation';
+import { sanitizeEmail } from '../../lib/sanitizer';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -19,7 +20,8 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const sanitizedEmail = sanitizeEmail(email);
+      await signInWithEmailAndPassword(auth, sanitizedEmail, password);
       router.push('/dashboard');
     } catch (err) {
       setError(err.message);
